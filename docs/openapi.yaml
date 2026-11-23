@@ -1,0 +1,452 @@
+openapi: 3.0.3
+info:
+  title: 焙日 Bakeday 電商 API
+  version: 1.0.0
+  description: |
+    手作麵包電商平台後端 API。
+
+    **認證方式**：登入或註冊成功後取得 `token`，之後在需要登入的 API 帶上 Header：
+    `Authorization: Bearer <token>`。在本頁右上角「Authorize」貼上 token 即可直接測試。
+
+    **回應格式**：成功 `{ success: true, data, ... }`；失敗 `{ success: false, message, errors? }`。
+
+    **權限**：
+    - 公開：商品、分類瀏覽
+    - 會員：購物車
+    - 管理員：`/api/admin/*` 商品新增、編輯、刪除（一般會員呼叫會得到 403）
+servers:
+  - url: /
+    description: 目前伺服器
+tags:
+  - name: Auth
+    description: 會員註冊、登入
+  - name: Products
+    description: 商品瀏覽（公開）
+  - name: Cart
+    description: 購物車（需登入）
+  - name: Admin
+    description: 商品管理（需管理員）
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ProductId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, example: 665f1c2e8a1b2c3d4e5f6a7b }
+      description: 商品 ID（MongoDB ObjectId）
+    CartProductId:
+      name: productId
+      in: path
+      required: true
+      schema: { type: string }
+      description: 購物車中的商品 ID
+  schemas:
+    Error:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string, example: 輸入資料格式錯誤 }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string, example: email }
+              message: { type: string, example: email 格式不正確 }
+    User:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string, example: 王小明 }
+        email: { type: string, example: user@bakeday.test }
+        role: { type: string, enum: [user, admin] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AuthResult:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            token: { type: string, example: eyJhbGciOiJIUzI1NiIs... }
+            user: { $ref: '#/components/schemas/User' }
+    Category:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string, example: 吐司 }
+        slug: { type: string, example: toast }
+        sort: { type: integer, example: 1 }
+    Product:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string, example: 北海道生吐司 }
+        description: { type: string }
+        price: { type: integer, example: 520, description: 新台幣，整數 }
+        stock: { type: integer, example: 20 }
+        category:
+          type: object
+          properties:
+            _id: { type: string }
+            name: { type: string }
+            slug: { type: string }
+        imageUrl: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProductInput:
+      type: object
+      required: [name, price, category]
+      properties:
+        name: { type: string, maxLength: 100, example: 測試商品 }
+        description: { type: string, maxLength: 2000, default: '' }
+        price: { type: integer, minimum: 0, example: 500 }
+        stock: { type: integer, minimum: 0, default: 0, example: 30 }
+        category: { type: string, description: 分類 ID（由 GET /api/categories 取得） }
+        imageUrl: { type: string, format: uri, default: '' }
+        isActive: { type: boolean, default: true, description: false 表示下架，前台不會顯示 }
+    Cart:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string, example: 已加入購物車 }
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  product:
+                    type: object
+                    properties:
+                      _id: { type: string }
+                      name: { type: string }
+                      price: { type: integer }
+                      stock: { type: integer }
+                      imageUrl: { type: string }
+                  qty: { type: integer, example: 2 }
+                  subtotal: { type: integer, example: 1040 }
+            totalQty: { type: integer, example: 2 }
+            totalPrice: { type: integer, example: 1040 }
+  responses:
+    BadRequest:
+      description: 參數驗證失敗或不合理的操作（如數量超過庫存）
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: 未登入、Token 無效或已過期
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: 已登入但權限不足（非管理員）
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: 資源不存在
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+paths:
+  /api/health:
+    get:
+      summary: 健康檢查
+      responses:
+        '200': { description: 伺服器正常 }
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: 註冊一般會員
+      description: 一律建立為一般會員（role=user）。請求中若帶 `role` 欄位會被忽略，無法藉此成為管理員。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, maxLength: 50, example: 王小明 }
+                email: { type: string, format: email, example: newuser@example.com }
+                password: { type: string, minLength: 8, maxLength: 72, example: password123 }
+      responses:
+        '201':
+          description: 註冊成功，直接回傳 token（視同已登入）
+          content: { application/json: { schema: { $ref: '#/components/schemas/AuthResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: email 已被註冊
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '429': { description: 嘗試次數過多（15 分鐘內同 IP 最多 20 次） }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: 登入
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, example: user@bakeday.test }
+                password: { type: string, example: user12345 }
+      responses:
+        '200':
+          description: 登入成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/AuthResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: email 或密碼錯誤
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '429': { description: 嘗試次數過多 }
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: 取得目前登入者資料
+      description: 前端重新整理頁面後，用保存的 token 呼叫此 API 確認登入狀態。
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      user: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/categories:
+    get:
+      tags: [Products]
+      summary: 取得所有分類
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { type: array, items: { $ref: '#/components/schemas/Category' } }
+
+  /api/products:
+    get:
+      tags: [Products]
+      summary: 商品列表（分頁、分類、搜尋、排序）
+      description: 只會回傳上架中（isActive=true）的商品。
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 12 } }
+        - name: category
+          in: query
+          description: 分類 slug，例如 `toast`、`artisan`、`pastry`、`bagel`。不存在的分類回傳空陣列。
+          schema: { type: string }
+        - name: q
+          in: query
+          description: 關鍵字，搜尋商品名稱與描述（不分大小寫）
+          schema: { type: string, maxLength: 50, example: 可頌 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [newest, price_asc, price_desc], default: newest }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { type: array, items: { $ref: '#/components/schemas/Product' } }
+                  pagination:
+                    type: object
+                    properties:
+                      page: { type: integer, example: 1 }
+                      limit: { type: integer, example: 8 }
+                      total: { type: integer, example: 16 }
+                      totalPages: { type: integer, example: 2 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/products/{id}:
+    get:
+      tags: [Products]
+      summary: 單一商品
+      parameters: [{ $ref: '#/components/parameters/ProductId' }]
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/cart:
+    get:
+      tags: [Cart]
+      summary: 查看購物車
+      description: 已下架或已刪除的商品會自動從購物車移除。
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [Cart]
+      summary: 清空購物車
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/cart/items:
+    post:
+      tags: [Cart]
+      summary: 加入購物車
+      description: |
+        - 商品已在購物車中 → 數量**累加**（回 200），不會產生重複品項
+        - 新商品 → 新增品項（回 201）
+        - 累加後超過庫存或超過 99 → 400
+        - 商品不存在或已下架 → 404
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId]
+              properties:
+                productId: { type: string }
+                qty: { type: integer, minimum: 1, maximum: 99, default: 1 }
+      responses:
+        '200':
+          description: 已在購物車，數量已累加
+          content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+        '201':
+          description: 已加入新品項
+          content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/cart/items/{productId}:
+    patch:
+      tags: [Cart]
+      summary: 設定購物車中某商品的數量
+      description: 直接設定為指定數量（非累加）。要移除請用 DELETE。
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/CartProductId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qty]
+              properties:
+                qty: { type: integer, minimum: 1, maximum: 99, example: 3 }
+      responses:
+        '200':
+          description: 成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Cart]
+      summary: 從購物車移除商品
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/CartProductId' }]
+      responses:
+        '200':
+          description: 成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/admin/products:
+    post:
+      tags: [Admin]
+      summary: 新增商品（管理員）
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ProductInput' } } }
+      responses:
+        '201':
+          description: 建立成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/products/{id}:
+    patch:
+      tags: [Admin]
+      summary: 編輯商品（管理員）
+      description: 只需傳要修改的欄位，至少一個。
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProductId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+            example: { price: 450, stock: 15 }
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data: { $ref: '#/components/schemas/Product' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Admin]
+      summary: 刪除商品（管理員）
+      description: 刪除後會一併從所有使用者的購物車中移除該商品。
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProductId' }]
+      responses:
+        '200': { description: 刪除成功 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }

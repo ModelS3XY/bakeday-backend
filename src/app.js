@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { readFileSync } from 'node:fs';
+import swaggerUi from 'swagger-ui-express';
+import YAML from 'yaml';
 import { env } from './config/env.js';
 import authRoutes from './routes/authRoutes.js';
 import { productRouter, categoryRouter } from './routes/productRoutes.js';
@@ -21,6 +24,12 @@ app.use(cors({ origin: env.corsOrigins }));
 app.use(express.json({ limit: '100kb' }));
 if (env.nodeEnv !== 'test') app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 
+// API 文件：/api-docs 是 Swagger UI，/openapi.json 是原始規格（可匯入 Postman）
+const openapi = YAML.parse(readFileSync(new URL('../docs/openapi.yaml', import.meta.url), 'utf8'));
+app.get('/openapi.json', (_req, res) => res.json(openapi));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapi));
+
+app.get('/', (_req, res) => res.redirect('/api-docs'));
 app.get('/api/health', (_req, res) => res.json({ success: true, status: 'ok' }));
 
 app.use('/api/auth', authRoutes);
