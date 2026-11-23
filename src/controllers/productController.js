@@ -1,6 +1,6 @@
 import { Product } from '../models/Product.js';
 import { Category } from '../models/Category.js';
-import { notFound } from '../utils/AppError.js';
+import { badRequest, notFound } from '../utils/AppError.js';
 
 const SORTS = {
   newest: { createdAt: -1, _id: -1 },
@@ -59,3 +59,34 @@ export async function getProduct(req, res) {
   res.json({ success: true, data: product });
 }
 
+async function assertCategoryExists(categoryId) {
+  if (categoryId && !(await Category.exists({ _id: categoryId }))) {
+    throw badRequest('分類不存在');
+  }
+}
+
+// POST /api/admin/products
+export async function createProduct(req, res) {
+  await assertCategoryExists(req.valid.body.category);
+  const product = await Product.create(req.valid.body);
+  await product.populate('category', 'name slug');
+  res.status(201).json({ success: true, data: product });
+}
+
+// PATCH /api/admin/products/:id
+export async function updateProduct(req, res) {
+  await assertCategoryExists(req.valid.body.category);
+  const product = await Product.findByIdAndUpdate(req.valid.params.id, req.valid.body, {
+    new: true,
+    runValidators: true, // findByIdAndUpdate 預設不跑 schema 驗證，要手動打開
+  }).populate('category', 'name slug');
+  if (!product) throw notFound('商品不存在');
+  res.json({ success: true, data: product });
+}
+
+// DELETE /api/admin/products/:id
+export async function deleteProduct(req, res) {
+  const product = await Product.findByIdAndDelete(req.valid.params.id);
+  if (!product) throw notFound('商品不存在');
+  res.json({ success: true, message: '商品已刪除' });
+}

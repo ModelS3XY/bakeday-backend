@@ -29,3 +29,27 @@ export const listProductsQuery = z.object({
   q: z.string().trim().max(50).optional(), // 關鍵字
   sort: z.enum(['newest', 'price_asc', 'price_desc']).default('newest'),
 });
+
+const productFields = {
+  name: z.string().trim().min(1).max(100),
+  description: z.string().max(2000),
+  price: z.number().int().min(0),
+  stock: z.number().int().min(0),
+  category: objectId,
+  imageUrl: z.url().or(z.literal('')),
+  isActive: z.boolean(),
+};
+
+export const createProductBody = z.object({
+  ...productFields,
+  description: productFields.description.default(''),
+  stock: productFields.stock.default(0),
+  imageUrl: productFields.imageUrl.default(''),
+  isActive: productFields.isActive.default(true),
+});
+
+// 編輯：所有欄位都可選，但至少要有一個
+export const updateProductBody = z
+  .object(productFields)
+  .partial()
+  .refine((obj) => Object.keys(obj).length > 0, { error: '至少需提供一個要更新的欄位' });
