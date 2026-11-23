@@ -1,0 +1,27 @@
+# ---------- 相依套件 / 產出 ----------
+node_modules/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+
+# ---------- 機密資訊（環境變數、金鑰、憑證） ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+secrets/
+credentials*.json
+service-account*.json
+
+# ---------- 系統 / 編輯器 ----------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
