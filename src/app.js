@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { env } from './config/env.js';
 import authRoutes from './routes/authRoutes.js';
+import { productRouter, categoryRouter } from './routes/productRoutes.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 
 // app.js 只負責「組裝」：middleware、路由、錯誤處理。
@@ -21,6 +22,8 @@ if (env.nodeEnv !== 'test') app.use(morgan(env.nodeEnv === 'production' ? 'combi
 app.get('/api/health', (_req, res) => res.json({ success: true, status: 'ok' }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/products', productRouter);
+app.use('/api/categories', categoryRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
