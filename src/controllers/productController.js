@@ -1,5 +1,6 @@
 import { Product } from '../models/Product.js';
 import { Category } from '../models/Category.js';
+import { Cart } from '../models/Cart.js';
 import { badRequest, notFound } from '../utils/AppError.js';
 
 const SORTS = {
@@ -88,5 +89,7 @@ export async function updateProduct(req, res) {
 export async function deleteProduct(req, res) {
   const product = await Product.findByIdAndDelete(req.valid.params.id);
   if (!product) throw notFound('商品不存在');
+  // 商品刪掉後，所有購物車裡的這個品項也一併移除，避免購物車殘留「幽靈商品」
+  await Cart.updateMany({}, { $pull: { items: { product: product._id } } });
   res.json({ success: true, message: '商品已刪除' });
 }

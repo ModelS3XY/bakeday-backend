@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
+import { MAX_QTY_PER_ITEM } from '../models/Cart.js';
 
 const objectId = z
   .string()
   .refine((v) => mongoose.isValidObjectId(v), { error: '無效的 ID 格式' });
 
 export const idParam = z.object({ id: objectId });
+export const productIdParam = z.object({ productId: objectId });
 
 // ---------- Auth ----------
 // 注意：schema 裡「沒有」role。zod 的 object 預設會剔除未定義的欄位，
@@ -53,3 +55,13 @@ export const updateProductBody = z
   .object(productFields)
   .partial()
   .refine((obj) => Object.keys(obj).length > 0, { error: '至少需提供一個要更新的欄位' });
+
+// ---------- Cart ----------
+const qty = z
+  .number({ error: '數量必須是數字' })
+  .int({ error: '數量必須是整數' })
+  .min(1, { error: '數量至少為 1' })
+  .max(MAX_QTY_PER_ITEM, { error: `單一商品數量最多 ${MAX_QTY_PER_ITEM}` });
+
+export const addCartItemBody = z.object({ productId: objectId, qty: qty.default(1) });
+export const updateCartItemBody = z.object({ qty });
