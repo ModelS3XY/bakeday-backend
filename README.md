@@ -120,6 +120,7 @@ npm test       # 整合測試（使用記憶體 MongoDB，不需要 .env）
 | `CORS_ORIGIN` | | 允許的前端網址，逗號分隔 | `http://localhost:5173,https://bakeday.pages.dev` |
 | `ADMIN_EMAIL` | seed 用 | 管理員帳號 | `admin@bakeday.test` |
 | `ADMIN_PASSWORD` | seed 用 | 管理員密碼 | |
+| `IMAGE_BASE_URL` | | seed 用：商品圖片所在網站（圖片放在前端 `public/images/products/`） | `https://bakeday.pages.dev` |
 | `DEMO_USER_EMAIL` / `DEMO_USER_PASSWORD` | | 測試會員（預設 `user@bakeday.test` / `user12345`） | |
 
 ## API 一覽

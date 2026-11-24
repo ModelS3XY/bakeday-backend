@@ -12,6 +12,10 @@ import { Product } from '../models/Product.js';
 import { Cart } from '../models/Cart.js';
 import { categories, productsByCategory } from './data.js';
 
+// 商品圖片是靜態檔，放在前端網站（Cloudflare Pages / CDN）提供，資料庫只存網址：
+// 圖片不佔資料庫空間、不經過後端，瀏覽器與 CDN 也能快取
+const IMAGE_BASE_URL = process.env.IMAGE_BASE_URL || 'https://bakeday.pages.dev';
+
 async function upsertUser({ name, email, password, role }) {
   // 用 save() 而不是 updateOne，才會觸發 pre('save') 的密碼雜湊
   const user = (await User.findOne({ email })) ?? new User({ email });
@@ -38,7 +42,7 @@ async function seed() {
   const now = Date.now();
   let n = 0;
   const products = Object.entries(productsByCategory).flatMap(([slug, list]) =>
-    list.map(([name, price, description]) => {
+    list.map(([name, price, description], i) => {
       n += 1;
       return {
         name,
@@ -46,7 +50,7 @@ async function seed() {
         description,
         stock: n % 9 === 0 ? 0 : 10 + ((n * 7) % 40), // 少數商品庫存為 0，方便測試邊界
         category: catIdBySlug[slug],
-        imageUrl: `https://picsum.photos/seed/bakeday-${n}/600/600`,
+        imageUrl: `${IMAGE_BASE_URL}/images/products/${slug}-${i + 1}.svg`,
         createdAt: new Date(now - n * 3600_000),
       };
     }),
