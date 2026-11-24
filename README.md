@@ -15,7 +15,7 @@
 | 角色 | Email | 密碼 |
 | --- | --- | --- |
 | 一般會員 | `user@bakeday.test` | `user12345` |
-| 管理員 | `admin@bakeday.test` | `<部署時設定的 ADMIN_PASSWORD>` |
+| 管理員 | `admin@bakeday.test` | `1q2w3e4r` |
 
 ### 管理員帳號產生方式
 
