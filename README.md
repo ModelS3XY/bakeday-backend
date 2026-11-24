@@ -2,10 +2,11 @@
 
 手作麵包選物電商的後端，提供會員、商品、購物車 API。
 
-- **API Base URL**：`https://<你的-render-網址>.onrender.com`
-- **API 文件（Swagger UI，可直接測試）**：`https://<你的-render-網址>.onrender.com/api-docs`
-- **OpenAPI JSON（可匯入 Postman）**：`/openapi.json`
-- **前端 Repo**：`<前端 repo 網址>`
+- **API Base URL**：https://bakeday-backend.onrender.com
+- **API 文件（Swagger UI，可直接測試）**：https://bakeday-backend.onrender.com/api-docs
+- **OpenAPI JSON（可匯入 Postman）**：https://bakeday-backend.onrender.com/openapi.json
+- **前端網站**：https://bakeday.pages.dev
+- **前端 Repo**：https://github.com/ModelS3XY/bakeday-frontend
 
 > 後端部署在 Render 免費方案，閒置 15 分鐘後會休眠，第一次請求可能需要等待約 30–60 秒喚醒。
 
