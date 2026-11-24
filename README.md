@@ -8,7 +8,7 @@
 - **前端網站**：https://bakeday.pages.dev
 - **前端 Repo**：https://github.com/ModelS3XY/bakeday-frontend
 
-> 後端部署在 Render 免費方案，閒置 15 分鐘後會休眠，第一次請求可能需要等待約 30–60 秒喚醒。
+> 後端部署在 Render 免費方案（閒置 15 分鐘會休眠），已用 Cloudflare Workers Cron 每 12 分鐘呼叫 `/api/health` 保持喚醒；若仍遇到第一次請求較慢，約 30–60 秒即可喚醒。
 
 ## 測試帳號
 
