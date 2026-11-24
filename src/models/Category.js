@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const categorySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true, trim: true, maxlength: 30 },
-    // slug 給前端網址用，例如 /products?category=beans
+    // slug 給前端網址用，例如 /products?category=toast
     slug: {
       type: String,
       required: true,
